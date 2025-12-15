@@ -1,0 +1,5 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 確保這三行在最上面，下面才是其他的 CSS */
