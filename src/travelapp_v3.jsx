@@ -8,6 +8,8 @@ import {
   LayoutGrid, List as ListIcon, Globe, Download, AlertTriangle, Share2,
   Smartphone, Shield, FerrisWheel, Minus
 } from 'lucide-react';
+// 請務必執行: npm install html2canvas
+import html2canvas from 'html2canvas';
 
 // --- 1. 模擬 Google Sheet 資料獲取 (Simulated Data Fetching) ---
 
@@ -156,24 +158,27 @@ const Sidebar = ({ isOpen, onClose, onUpdateDestination, destinationValue, start
             />
           </div>
           <label className="text-xs font-bold text-gray-400 uppercase mb-3 block tracking-wider">旅遊天數 (Days)</label>
-          <div className="relative flex items-center">
+          {/* 修改後的日期選擇器 UI：外層統一邊框，內層無邊框，解決對齊問題 */}
+          <div className="flex items-center border-2 border-gray-100 rounded-xl overflow-hidden bg-gray-50">
              <button 
                 onClick={() => setDuration(Math.max(1, duration - 1))}
-                className="p-3 bg-gray-100 rounded-l-xl border border-r-0 border-gray-300 text-gray-600 hover:bg-gray-200 active:bg-gray-300 transition"
+                className="p-3 text-gray-600 hover:bg-gray-200 active:bg-gray-300 transition w-12 flex justify-center items-center"
              >
                 <Minus size={18} />
              </button>
-             <input 
-              type="number" 
-              min="1"
-              max="30"
-              value={duration}
-              onChange={(e) => setDuration(parseInt(e.target.value) || 1)}
-              className="w-full p-3 border-y border-gray-300 text-center font-bold text-gray-700 outline-none rounded-none focus:border-yellow-400 focus:z-10"
-            />
+             <div className="flex-1 bg-white border-x-2 border-gray-50 h-full flex items-center">
+               <input 
+                type="number" 
+                min="1"
+                max="30"
+                value={duration}
+                onChange={(e) => setDuration(parseInt(e.target.value) || 1)}
+                className="w-full p-3 text-center font-bold text-gray-700 outline-none"
+              />
+             </div>
              <button 
                 onClick={() => setDuration(duration + 1)}
-                className="p-3 bg-gray-100 rounded-r-xl border border-l-0 border-gray-300 text-gray-600 hover:bg-gray-200 active:bg-gray-300 transition"
+                className="p-3 text-gray-600 hover:bg-gray-200 active:bg-gray-300 transition w-12 flex justify-center items-center"
              >
                 <Plus size={18} />
              </button>
@@ -190,15 +195,50 @@ const Sidebar = ({ isOpen, onClose, onUpdateDestination, destinationValue, start
             <span>安裝應用程式 (PWA)</span>
           </button>
           <div className="text-center text-xs text-gray-400">
-              Wanderlust Tracker v3.8
+              Wanderlust Tracker v3.9
           </div>
       </div>
     </div>
   </>
 );
 
-const PreviewCardModal = ({ itinerary, day, onClose, onDownload }) => {
+const PreviewCardModal = ({ itinerary, day, onClose, onDownloadSuccess }) => {
     const items = itinerary.days[day] || [];
+    const cardRef = useRef(null); // 用於 html2canvas 捕捉
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleDownload = async () => {
+        if (!cardRef.current) return;
+        setIsGenerating(true);
+        try {
+            // 使用 html2canvas 將 DOM 轉為 Canvas
+            const canvas = await html2canvas(cardRef.current, {
+                scale: 2, // 提高解析度 (Retina)
+                backgroundColor: '#FFFBEB', // 設定背景色 (配合 bg-yellow-50)
+                useCORS: true, // 允許跨域圖片
+                logging: false,
+            });
+            
+            // 轉為 Data URL
+            const image = canvas.toDataURL("image/png");
+            
+            // 建立下載連結
+            const link = document.createElement('a');
+            link.href = image;
+            link.download = `${itinerary.destination}_${day}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            if(onDownloadSuccess) onDownloadSuccess();
+        } catch (error) {
+            console.error("Image generation failed:", error);
+            alert("圖片儲存失敗，請稍後再試");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
     return (
         <div key="preview-modal" className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
@@ -206,7 +246,8 @@ const PreviewCardModal = ({ itinerary, day, onClose, onDownload }) => {
                     <h3 className="font-bold text-lg text-gray-800">行程卡預覽</h3>
                     <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full"><X size={20}/></button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-6 bg-yellow-50">
+                {/* 預覽區域 - 設定 ref 用於截圖 */}
+                <div className="flex-1 overflow-y-auto p-6 bg-yellow-50" ref={cardRef}>
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                         <div className="text-center mb-6">
                             <h2 className="text-2xl font-black text-gray-800">{itinerary.destination}</h2>
@@ -235,8 +276,13 @@ const PreviewCardModal = ({ itinerary, day, onClose, onDownload }) => {
                 </div>
                 <div className="p-4 border-t bg-white flex space-x-3">
                     <button onClick={onClose} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-50 rounded-xl transition-colors">取消</button>
-                    <button onClick={onDownload} className="flex-1 py-3 bg-yellow-400 text-white font-bold rounded-xl shadow-lg hover:bg-yellow-500 transition-colors flex items-center justify-center">
-                        <Download size={18} className="mr-2"/> 儲存圖片
+                    <button 
+                        onClick={handleDownload} 
+                        disabled={isGenerating}
+                        className="flex-1 py-3 bg-yellow-400 text-white font-bold rounded-xl shadow-lg hover:bg-yellow-500 transition-colors flex items-center justify-center active:scale-95 disabled:opacity-50"
+                    >
+                        {isGenerating ? <Loader2 size={18} className="animate-spin mr-2"/> : <Download size={18} className="mr-2"/>}
+                        {isGenerating ? '處理中...' : '儲存圖片'}
                     </button>
                 </div>
             </div>
@@ -319,7 +365,7 @@ const MapView = ({ itinerary, currentDay, onBack, onRequestPermission, addToast 
     if (hasRoute) {
         const destination = encodeURIComponent(items[items.length - 1].location || items[items.length - 1].title);
         const waypoints = items.slice(0, items.length - 1).slice(0, 8).map(i => encodeURIComponent(i.location || i.title)).join('|');
-        routeUrl = `https://www.google.com/maps/dir/?api=1&origin=Current+Location&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
+        routeUrl = `https://www.google.com/maps/dir/?api=1&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
     }
 
     // 預覽地圖顯示第一站
@@ -583,7 +629,7 @@ const RecommendationView = ({ itinerary, onBack, onAddItem }) => {
                     {!isSearching && searchResults.length === 0 && (
                         <div key="no-results-fallback" className="col-span-2 text-center py-10 text-gray-400 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
                             <p className="font-bold mb-2">找不到相關景點 🥲</p>
-                            <a href={`https://www.google.com/maps/search/${searchKeyword}`} target="_blank" rel="noreferrer" className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-600 rounded-xl font-bold text-sm hover:bg-blue-200"><Map size={16} className="mr-2" /> 去 Google Map 搜尋</a>
+                            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchKeyword)}`} target="_blank" rel="noreferrer" className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-600 rounded-xl font-bold text-sm hover:bg-blue-200"><Map size={16} className="mr-2" /> 去 Google Map 搜尋</a>
                         </div>
                     )}
                 </div>
@@ -943,7 +989,7 @@ export default function TravelApp() {
   };
   
   const handleOpenPreview = () => setShowPreviewModal(true);
-  const handleSaveImage = () => { setShowPreviewModal(false); addToast('圖片已儲存至相簿！(模擬)'); }
+  const handleSaveImageSuccess = () => { setShowPreviewModal(false); addToast('圖片已儲存至相簿！'); }
 
   // --- Render Helpers ---
 
@@ -1171,7 +1217,7 @@ export default function TravelApp() {
               itinerary={itinerary} 
               day={currentDay} 
               onClose={() => setShowPreviewModal(false)} 
-              onDownload={handleSaveImage} 
+              onDownloadSuccess={handleSaveImageSuccess} 
           />
       )}
     </div>

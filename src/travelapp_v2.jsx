@@ -6,16 +6,15 @@ import {
   Loader2, ExternalLink, Menu, DollarSign, Sun, CloudRain, Cloud, 
   Copy, Image as ImageIcon, RefreshCcw, Settings, Info, ArrowLeft,
   LayoutGrid, List as ListIcon, Globe, Download, AlertTriangle, Share2,
-  Smartphone, Shield, FerrisWheel, Minus
+  Smartphone, Shield, FerrisWheel
 } from 'lucide-react';
 
-// --- 1. 模擬 Google Sheet 資料獲取 (Simulated Data Fetching) ---
+// --- 1. 模擬 Google Sheet 資料獲取 ---
 
 const fetchPlacesFromGoogleSheet = async () => {
   await new Promise(resolve => setTimeout(resolve, 600)); 
 
   const mockData = [
-    // --- 沖繩 Okinawa ---
     { id: 'ok_01', city: '沖繩', keyword: 'Okinawa', category: 'fun', img: '🐠', title: '美麗海水族館', location: '國頭郡本部町', description: '擁有巨大黑潮之海，鯨鯊與鬼蝠魟是必看鎮館之寶。', mapsLink: 'https://www.google.com/maps/search/?api=1&query=Okinawa+Churaumi+Aquarium' },
     { id: 'ok_02', city: '沖繩', keyword: 'Okinawa', category: 'shopping', img: '🎡', title: '美國村 (American Village)', location: '中頭郡北谷町', description: '充滿美式風情的購物娛樂區，日落海灘夕陽絕美。', mapsLink: 'https://www.google.com/maps/search/?api=1&query=American+Village+Okinawa' },
     { id: 'ok_03', city: '沖繩', keyword: 'Okinawa', category: 'shopping', img: '🛍️', title: '國際通 (Kokusai Dori)', location: '那霸市', description: '那霸最熱鬧的奇蹟一英哩，伴手禮、泡盛、美食聚集地。', mapsLink: 'https://www.google.com/maps/search/?api=1&query=Kokusai+Dori' },
@@ -24,8 +23,6 @@ const fetchPlacesFromGoogleSheet = async () => {
     { id: 'ok_06', city: '沖繩', keyword: 'Okinawa', category: 'food', img: '🍜', title: '暖暮拉麵', location: '那霸市', description: '九州風味的濃郁豚骨拉麵，沖繩人氣排隊名店。', mapsLink: 'https://www.google.com/maps/search/?api=1&query=Danbo+Ramen+Okinawa' },
     { id: 'ok_07', city: '沖繩', keyword: 'Okinawa', category: 'scenery', img: '🏝️', title: '古宇利島', location: '國頭郡今歸仁村', description: '以清澈的「古宇利藍」海水與心形岩聞名的戀之島。', mapsLink: 'https://www.google.com/maps/search/?api=1&query=Kouri+Island' },
     { id: 'ok_08', city: '沖繩', keyword: 'Okinawa', category: 'shopping', img: '🛍️', title: 'Ashibinaa Outlet', location: '豐見城市', description: '沖繩最大的名牌折扣購物中心，鄰近機場。', mapsLink: 'https://www.google.com/maps/search/?api=1&query=Ashibinaa+Outlet' },
-    
-    // --- 其他範例 ---
     { id: 'osaka_1', city: '大阪', keyword: 'Osaka', category: 'food', img: '🦀', title: '道頓堀', location: '中央區', description: '大阪美食一級戰區，固力果跑跑人必拍。', mapsLink: 'https://www.google.com/maps/search/?api=1&query=Dotonbori+Osaka' },
     { id: 'tokyo_1', city: '東京', keyword: 'Tokyo', category: 'scenery', img: '🗼', title: '東京鐵塔', location: '港區', description: '經典紅白地標，浪漫城市景觀。', mapsLink: 'https://www.google.com/maps/search/?api=1&query=Tokyo+Tower' },
   ];
@@ -47,7 +44,6 @@ const TRANSLATION_DICT = {
   "好吃": { text: "おいしい", romaji: "Oishii" },
 };
 
-// 預設行程範本
 const NEW_TRIP_TEMPLATE = {
   destination: "沖繩 Okinawa Trip",
   startDate: new Date().toISOString().split('T')[0],
@@ -155,30 +151,17 @@ const Sidebar = ({ isOpen, onClose, onUpdateDestination, destinationValue, start
               className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl p-3 pl-10 font-bold text-gray-700 outline-none focus:border-yellow-400 transition-colors"
             />
           </div>
-          
           <label className="text-xs font-bold text-gray-400 uppercase mb-3 block tracking-wider">旅遊天數 (Days)</label>
-          <div className="relative flex items-center">
-             {/* 調整: 使用按鈕來增加/減少天數，解決手機版輸入框箭頭問題 */}
-             <button 
-                onClick={() => setDuration(Math.max(1, duration - 1))}
-                className="p-3 bg-gray-100 rounded-l-xl border border-r-0 border-gray-300 text-gray-600 hover:bg-gray-200 active:bg-gray-300 transition"
-             >
-                <Minus size={18} />
-             </button>
+          <div className="relative">
+             <Clock className="absolute left-3 top-3 text-gray-400" size={18}/>
              <input 
               type="number" 
               min="1"
               max="30"
               value={duration}
               onChange={(e) => setDuration(parseInt(e.target.value) || 1)}
-              className="w-full p-3 border-y border-gray-300 text-center font-bold text-gray-700 outline-none rounded-none focus:border-yellow-400 focus:z-10"
+              className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl p-3 pl-10 font-bold text-gray-700 outline-none focus:border-yellow-400 transition-colors"
             />
-             <button 
-                onClick={() => setDuration(duration + 1)}
-                className="p-3 bg-gray-100 rounded-r-xl border border-l-0 border-gray-300 text-gray-600 hover:bg-gray-200 active:bg-gray-300 transition"
-             >
-                <Plus size={18} />
-             </button>
           </div>
         </div>
       </div>
@@ -192,7 +175,7 @@ const Sidebar = ({ isOpen, onClose, onUpdateDestination, destinationValue, start
             <span>安裝應用程式 (PWA)</span>
           </button>
           <div className="text-center text-xs text-gray-400">
-              Wanderlust Tracker v3.7
+              Wanderlust Tracker v3.6
           </div>
       </div>
     </div>
@@ -246,9 +229,8 @@ const PreviewCardModal = ({ itinerary, day, onClose, onDownload }) => {
     );
 };
 
-// --- 3. 獨立視圖元件 (Extracted View Components) ---
+// --- 3. 獨立視圖元件 ---
 
-// Dashboard View Component
 const DashboardView = ({ allTrips, onSetActiveTripId, onCreateTrip, onDeleteTrip, onUpdateTripTitle }) => {
     const [viewMode, setViewMode] = useState('grid');
     
@@ -308,7 +290,6 @@ const DashboardView = ({ allTrips, onSetActiveTripId, onCreateTrip, onDeleteTrip
     );
 };
 
-// Map View Component
 const MapView = ({ itinerary, currentDay, onBack, onRequestPermission, addToast }) => {
     const [userLocation, setUserLocation] = useState(null);
     const [locationError, setLocationError] = useState(false);
@@ -316,15 +297,14 @@ const MapView = ({ itinerary, currentDay, onBack, onRequestPermission, addToast 
     const items = itinerary.days[currentDay] || [];
     const hasRoute = items.length > 0;
     
-    // 產生 Google Maps 導航連結 (Deep Link)
+    // --- 修正處：使用反引號 (Template Literals) ---
     let routeUrl = "";
     if (hasRoute) {
         const destination = encodeURIComponent(items[items.length - 1].location || items[items.length - 1].title);
         const waypoints = items.slice(0, items.length - 1).slice(0, 8).map(i => encodeURIComponent(i.location || i.title)).join('|');
-        routeUrl = `https://www.google.com/maps/dir/?api=1&origin=Current+Location&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
+        routeUrl = `https://www.google.com/maps/dir/?api=1&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
     }
 
-    // 預覽地圖顯示第一站
     const firstStop = items.length > 0 ? (items[0].location || items[0].title) : "Taipei";
 
     useEffect(() => {
@@ -351,14 +331,12 @@ const MapView = ({ itinerary, currentDay, onBack, onRequestPermission, addToast 
       <div className="absolute top-4 left-4 right-4 z-10 bg-white p-3 rounded-2xl shadow-lg flex flex-col">
         <div className="flex items-center justify-between w-full mb-2">
             <div className="flex items-center">
-                {/* 調整返回按鈕：地圖 -> 行程表 */}
                 <button onClick={onBack} className="mr-3 p-1 bg-gray-100 rounded-full"><ArrowLeft size={20}/></button>
                 <MapPin className="text-purple-500 mr-2" />
                 <span className="font-bold text-gray-700">當日路線導航</span>
             </div>
         </div>
         
-        {/* 強大的導航按鈕 */}
         {hasRoute && (
              <a href={routeUrl} target="_blank" rel="noopener noreferrer" className="w-full mb-3 flex items-center justify-center bg-blue-600 text-white px-4 py-3 rounded-xl text-sm font-bold shadow-md active:scale-95 transition-transform hover:bg-blue-700">
                 <Navigation size={18} className="mr-2" />
@@ -370,23 +348,6 @@ const MapView = ({ itinerary, currentDay, onBack, onRequestPermission, addToast 
             <p className="text-xs text-red-500 font-medium bg-red-50 p-2 rounded-lg text-center">⚠️ 今日尚無行程，無法建立路線。</p>
         )}
         
-        {/* 恢復顯示橫向行程列表，並加入過期判斷 */}
-        {hasRoute && (
-            <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-hide">
-                 <span className="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-500 whitespace-nowrap">起點: 當前位置</span>
-                 {items.map((item, i) => {
-                     const isPassed = isTimePassedCheck(currentDay, item.time);
-                     return (
-                     <React.Fragment key={i}>
-                        <span className="text-gray-300">→</span>
-                        <span className={`text-[10px] px-2 py-1 rounded whitespace-nowrap border ${isPassed ? 'bg-gray-100 text-gray-400 line-through border-gray-200' : 'bg-purple-50 text-purple-700 border-purple-100'}`}>
-                            {item.title}
-                        </span>
-                     </React.Fragment>
-                 )})}
-            </div>
-        )}
-
         {(locationError || !userLocation) && (
              <div className="mt-2 flex items-center text-xs text-orange-600 bg-orange-50 p-2 rounded-lg">
                 <AlertTriangle size={14} className="mr-1 flex-shrink-0" />
@@ -400,15 +361,14 @@ const MapView = ({ itinerary, currentDay, onBack, onRequestPermission, addToast 
           height="100%" 
           frameBorder="0" 
           style={{ border: 0 }} 
-          // 使用更通用的 Embed URL
-          src={`https://maps.google.com/maps?q=${encodeURIComponent(firstStop)}&z=14&output=embed`}
+          // --- 修正處：使用反引號 ---
+          src={`https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY&q=${encodeURIComponent(firstStop)}&zoom=14`}
           allowFullScreen
         ></iframe>
       </div>
     </div>
   )};
 
-// Translate View Component
 const TranslateView = ({ onBack, onRequestPermission, addToast }) => {
     const [transInput, setTransInput] = useState("");
     const [transOutput, setTransOutput] = useState({ text: "こんにちは！", romaji: "(Konnichiwa)" });
@@ -502,7 +462,6 @@ const TranslateView = ({ onBack, onRequestPermission, addToast }) => {
     );
 };
 
-// Recommendation View Component
 const RecommendationView = ({ itinerary, onBack, onAddItem }) => {
     const [searchKeyword, setSearchKeyword] = useState("");
     const [searchResults, setSearchResults] = useState([]);
@@ -621,10 +580,8 @@ export default function TravelApp() {
   const dragItem = useRef();
   const dragOverItem = useRef();
   
-  // Install App PWA logic
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   
-  // 動態注入 Manifest (解決 PWA 問題)
   useEffect(() => {
     if (!document.querySelector('link[rel="manifest"]')) {
       const manifest = {
@@ -657,7 +614,6 @@ export default function TravelApp() {
       link.href = manifestURL;
       document.head.appendChild(link);
       
-      // 添加 meta 標籤優化手機體驗
       const metaApple = document.createElement('meta');
       metaApple.name = "apple-mobile-web-app-capable";
       metaApple.content = "yes";
@@ -686,12 +642,9 @@ export default function TravelApp() {
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') setDeferredPrompt(null);
     } else {
-      // 瀏覽器不支援觸發安裝，顯示手動安裝教學
       alert("【安裝教學】\n\n1. Android (Chrome): 點擊瀏覽器右上角選單 ->「安裝應用程式」或「加到主畫面」。\n\n2. iOS (Safari): 點擊下方「分享」按鈕 -> 往下滑找到「加入主畫面」。");
     }
   };
-
-  // --- Effects ---
 
   useEffect(() => {
     const savedTrips = localStorage.getItem('wanderlust_all_trips_v6'); 
@@ -714,27 +667,14 @@ export default function TravelApp() {
 
   useEffect(() => {
     if (activeTripId) {
-      // Load current trip when activeTripId changes.
-      // Persist activeTab state (e.g. if user refreshes page, keep current view)
-      // For now, we always default to 'itinerary' when opening a trip for simplicity, 
-      // but logic handles tab switching
-      const storedActiveTab = localStorage.getItem('activeTab_v1');
-      if (storedActiveTab) setActiveTab(storedActiveTab);
-      
       const trip = allTrips.find(t => t.id === activeTripId);
       if (trip) {
         setItinerary(trip); 
+        setActiveTab('itinerary');
         setCurrentDay("Day 1");
       }
     }
   }, [activeTripId]); 
-  
-  // Persist active tab selection
-  useEffect(() => {
-      if (activeTripId) {
-          localStorage.setItem('activeTab_v1', activeTab);
-      }
-  }, [activeTab, activeTripId]);
 
   useEffect(() => {
     if (activeTripId) {
@@ -746,8 +686,6 @@ export default function TravelApp() {
       }
     }
   }, [activeTripId]);
-
-  // --- Helpers ---
 
   const addToast = (message, type = 'success') => {
     const id = Date.now() + Math.random(); 
@@ -783,8 +721,6 @@ export default function TravelApp() {
     return day === "Day 1" && timeStr < "12:00"; 
   };
 
-  // --- Logic Functions ---
-
   const requestPermission = (type, callback) => {
       setPermissionModal({ type, callback });
   };
@@ -799,8 +735,6 @@ export default function TravelApp() {
       setPermissionModal(null);
       addToast('已取消操作', 'info');
   };
-
-  // --- Actions ---
 
   const handleCreateTrip = () => {
     const newId = `trip_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
@@ -874,7 +808,6 @@ export default function TravelApp() {
     addToast('行程已刪除', 'info');
   };
 
-  // Add item from recommendation
   const handleAddItemFromRec = (rec) => {
       setCurrentItem({ 
           id: Date.now().toString() + Math.random().toString().slice(2, 5), 
@@ -928,8 +861,6 @@ export default function TravelApp() {
   const handleOpenPreview = () => setShowPreviewModal(true);
   const handleSaveImage = () => { setShowPreviewModal(false); addToast('圖片已儲存至相簿！(模擬)'); }
 
-  // --- Render Helpers ---
-
   const renderItineraryItems = () => {
       const items = itinerary.days[currentDay] || [];
       if (items.length === 0) {
@@ -978,8 +909,6 @@ export default function TravelApp() {
       );
   };
 
-  // --- Main Render ---
-
   return (
     <div className="w-full h-screen bg-white max-w-md mx-auto relative overflow-hidden flex flex-col font-sans select-none">
       <ToastContainer toasts={toasts} />
@@ -998,7 +927,6 @@ export default function TravelApp() {
 
       {permissionModal && <PermissionModal type={permissionModal.type} onConfirm={handlePermissionConfirm} onCancel={handlePermissionCancel} />}
 
-      {/* Conditionally Render View based on activeTripId */}
       {!activeTripId ? (
         <React.Fragment key="dashboard-mode-view">
             <DashboardView 
@@ -1015,7 +943,6 @@ export default function TravelApp() {
             {(() => {
                 switch (activeTab) {
                     case 'itinerary':
-                        // Inlined Itinerary View content
                         const { dateStr, weekDay, weatherType } = getDayInfo(currentDay);
                         const dailyCost = calculateDailyCost(currentDay);
                         return (
@@ -1134,7 +1061,6 @@ export default function TravelApp() {
           </div>
         </div>
       )}
-      {/* FIX: Added key="note-modal" */}
       {showNoteModal && (
         <div key="note-modal" className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6">
           <div className="bg-yellow-50 w-full rounded-3xl p-6 shadow-xl border-4 border-yellow-200 relative rotate-1">
@@ -1144,7 +1070,6 @@ export default function TravelApp() {
           </div>
         </div>
       )}
-      {/* Preview Modal */}
       {showPreviewModal && (
           <PreviewCardModal 
               itinerary={itinerary} 
