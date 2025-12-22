@@ -17,10 +17,14 @@ const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1TaKPCN4jei
 
 // 簡單的 CSV 解析器
 const parseCSV = (text) => {
+  if (!text) return [];
   const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length === 0) return [];
+
   const headers = lines[0].split(',').map(h => h.trim());
   
   return lines.slice(1).map(line => {
+    // 處理引號內的逗號
     const row = [];
     let inQuotes = false;
     let currentVal = '';
@@ -38,6 +42,7 @@ const parseCSV = (text) => {
     }
     row.push(currentVal.trim());
 
+    // 將陣列轉為物件
     const obj = {};
     headers.forEach((h, index) => {
       let val = row[index] || '';
@@ -51,11 +56,11 @@ const parseCSV = (text) => {
 const fetchPlacesFromGoogleSheet = async () => {
   try {
     const response = await fetch(GOOGLE_SHEET_CSV_URL);
-    if (!response.ok) throw new Error('Network response was not ok');
+    if (!response.ok) throw new Error(`Network response was not ok: ${response.status}`);
     const text = await response.text();
     return parseCSV(text);
   } catch (error) {
-    console.error("Error fetching Google Sheet:", error);
+    console.warn("無法讀取 Google Sheet 資料 (可能是 CORS 跨域限制或網絡問題)。將顯示錯誤提示卡片。");
     return [
       { 
         id: 'error_msg', 
@@ -65,7 +70,7 @@ const fetchPlacesFromGoogleSheet = async () => {
         img: '⚠️', 
         title: '連線提示', 
         location: '資料庫', 
-        description: '暫時無法連結至資料庫(因跨域問題)，請稍後再試。', 
+        description: '暫時無法連結至 Google Sheet 資料庫 (因瀏覽器跨域安全限制)，請稍後再試。', 
         mapsLink: '' 
       }
     ];
@@ -115,15 +120,18 @@ const isTimePassedCheck = (day, timeStr) => {
     return timeStr < "12:00"; 
 };
 
-// 剪貼簿複製 helper (強化版：同時支援 Clipboard API 和 execCommand)
+// 格式化時間顯示
+const formatTimeDisplay = (time24) => {
+    return time24 || '';
+};
+
+// 剪貼簿複製 helper
 const copyToClipboard = (text, onSuccess, onError) => {
-  // 嘗試使用現代 Clipboard API
   if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text)
         .then(onSuccess)
         .catch((err) => {
-            console.error('Clipboard API failed', err);
-            // 如果失敗，嘗試 fallback
+            console.warn('Clipboard API failed, trying fallback...');
             fallbackCopyText(text, onSuccess, onError);
         });
   } else {
@@ -135,7 +143,6 @@ const fallbackCopyText = (text, onSuccess, onError) => {
   const textArea = document.createElement("textarea");
   textArea.value = text;
   
-  // 避免頁面滾動
   textArea.style.position = "fixed";
   textArea.style.left = "-9999px";
   textArea.style.top = "0";
@@ -275,7 +282,7 @@ const Sidebar = ({ isOpen, onClose, onUpdateDestination, destinationValue, start
             <span>安裝應用程式 (PWA)</span>
           </button>
           <div className="text-center text-xs text-gray-400">
-              Wanderlust Tracker v4.3
+              Wanderlust Tracker v5.0
           </div>
       </div>
     </div>
@@ -303,7 +310,7 @@ const PreviewCardModal = ({ itinerary, day, onClose, onDownload }) => {
                             ) : (
                                 items.map((item, idx) => (
                                     <div key={idx} className="flex items-start">
-                                        <div className="w-12 text-sm font-bold text-gray-500 pt-1">{item.time}</div>
+                                        <div className="w-12 text-sm font-bold text-gray-500 pt-1">{formatTimeDisplay(item.time)}</div>
                                         <div className="flex-1 border-l-2 border-yellow-200 pl-4 pb-4 relative">
                                             <div className="absolute -left-[5px] top-2 w-2 h-2 rounded-full bg-yellow-400"></div>
                                             <div className="font-bold text-gray-800">{item.title}</div>
@@ -330,7 +337,7 @@ const PreviewCardModal = ({ itinerary, day, onClose, onDownload }) => {
 };
 
 // 4. 工具箱 Modal
-const ToolsModal = ({ onClose, onExport, onImport, allTrips, activeTripId }) => {
+const ToolsModal = ({ onClose, onExport, onImport, allTrips, activeTripId, onInstall }) => {
     const fileInputRef = useRef(null);
     const [importCode, setImportCode] = useState("");
     const [selectedTripToShare, setSelectedTripToShare] = useState('all');
@@ -446,6 +453,14 @@ const ToolsModal = ({ onClose, onExport, onImport, allTrips, activeTripId }) => 
                         </button>
                     </div>
                 </div>
+
+                {/* 3. PWA 安裝按鈕 */}
+                <div className="mt-6 pt-6 border-t border-gray-100">
+                     <h4 className="font-bold text-gray-700 mb-3 flex items-center"><Smartphone size={18} className="mr-2"/> 安裝 App</h4>
+                     <button onClick={onInstall} className="w-full p-4 bg-yellow-400 text-white font-bold rounded-2xl shadow-lg hover:bg-yellow-500 transition flex items-center justify-center">
+                         <Download size={20} className="mr-2"/> 安裝至主畫面
+                     </button>
+                </div>
              </div>
         </div>
     );
@@ -520,23 +535,41 @@ const DashboardView = ({ allTrips, onSetActiveTripId, onCreateTrip, onDeleteTrip
 };
 
 // Map View Component
-const MapView = ({ itinerary, currentDay, onBack, onRequestPermission, addToast }) => {
+const MapView = ({ itinerary, currentDay, onBack, onRequestPermission, addToast, focusedItem, onClearFocus }) => {
     const [userLocation, setUserLocation] = useState(null);
     const [locationError, setLocationError] = useState(false);
+    const [selectedMapItem, setSelectedMapItem] = useState(focusedItem);
+
+    // Sync focusedItem prop to internal state, but allow internal state to change (clicking top nav)
+    useEffect(() => {
+        setSelectedMapItem(focusedItem);
+    }, [focusedItem]);
 
     const items = itinerary.days[currentDay] || [];
     const hasRoute = items.length > 0;
     
-    // 產生 Google Maps 導航連結 (Deep Link)
+    // Determine the route based on selection
+    // If selectedMapItem is present, route is Current -> SelectedItem
+    // If NO selectedMapItem, route is Current -> Item1 -> Item2 ... -> LastItem (Full day view)
     let routeUrl = "";
-    if (hasRoute) {
-        const destination = encodeURIComponent(items[items.length - 1].location || items[items.length - 1].title);
-        const waypoints = items.slice(0, items.length - 1).slice(0, 8).map(i => encodeURIComponent(i.location || i.title)).join('|');
-        routeUrl = `https://www.google.com/maps/dir/?api=1&origin=Current+Location&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
+    const displayItems = selectedMapItem ? [selectedMapItem] : items;
+    
+    if (displayItems.length > 0) {
+        // If single item focused
+        if (selectedMapItem) {
+             const destination = encodeURIComponent(selectedMapItem.location || selectedMapItem.title);
+             routeUrl = `https://www.google.com/maps/dir/?api=1&origin=Current+Location&destination=${destination}&travelmode=driving`;
+        } else {
+             // Full day route
+             const destination = encodeURIComponent(items[items.length - 1].location || items[items.length - 1].title);
+             const waypoints = items.slice(0, items.length - 1).slice(0, 8).map(i => encodeURIComponent(i.location || i.title)).join('|');
+             routeUrl = `https://www.google.com/maps/dir/?api=1&origin=Current+Location&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}&travelmode=driving`;
+        }
     }
 
-    // 預覽地圖顯示第一站
-    const firstStop = items.length > 0 ? (items[0].location || items[0].title) : "Taipei";
+    // Embed map logic
+    // If focused, center on it. If not, center on first stop or user loc (handled by iframe logic usually, here we just center on first item for preview)
+    const firstStop = displayItems.length > 0 ? (displayItems[0].location || displayItems[0].title) : "Taipei";
 
     useEffect(() => {
         onRequestPermission('location', () => {
@@ -547,7 +580,7 @@ const MapView = ({ itinerary, currentDay, onBack, onRequestPermission, addToast 
                     (error) => {
                         console.error(error);
                         setLocationError(true);
-                        addToast('無法取得定位', 'info');
+                        addToast('無法取得定位，使用預設地圖', 'info');
                     }
                 );
             } else {
@@ -565,34 +598,58 @@ const MapView = ({ itinerary, currentDay, onBack, onRequestPermission, addToast 
                 {/* 調整返回按鈕：地圖 -> 行程表 */}
                 <button onClick={onBack} className="mr-3 p-1 bg-gray-100 rounded-full"><ArrowLeft size={20}/></button>
                 <MapPin className="text-purple-500 mr-2" />
-                <span className="font-bold text-gray-700">當日路線導航</span>
+                <span className="font-bold text-gray-700">
+                    {selectedMapItem ? `導航前往: ${selectedMapItem.title}` : "當日路線導航"}
+                </span>
             </div>
         </div>
         
         {/* 強大的導航按鈕 */}
-        {hasRoute && (
+        {displayItems.length > 0 && (
              <a href={routeUrl} target="_blank" rel="noopener noreferrer" className="w-full mb-3 flex items-center justify-center bg-blue-600 text-white px-4 py-3 rounded-xl text-sm font-bold shadow-md active:scale-95 transition-transform hover:bg-blue-700">
                 <Navigation size={18} className="mr-2" />
                 🚀 開啟完整導航路線 (Google Maps)
              </a>
         )}
 
+        {/* 返回當日總覽按鈕 (僅在單點模式顯示) */}
+        {selectedMapItem && (
+             <button onClick={() => { setSelectedMapItem(null); onClearFocus(); }} className="w-full mb-2 flex items-center justify-center bg-gray-100 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200">
+                <Map size={14} className="mr-2" />
+                顯示當日全行程
+             </button>
+        )}
+
+        {/* 判斷無行程的情況 (Empty State) */}
         {!hasRoute && (
-            <p className="text-xs text-red-500 font-medium bg-red-50 p-2 rounded-lg text-center">⚠️ 今日尚無行程，無法建立路線。</p>
+            <div className="text-center py-6 text-gray-500">
+                 <p className="text-xs font-medium mb-1">⚠️ 尚無行程目標</p>
+                 <p className="text-[10px]">請先在行程表中新增景點</p>
+            </div>
         )}
         
-        {/* 恢復顯示橫向行程列表，並加入過期判斷 */}
+        {/* 上方行程列表 (可點擊切換單點導航) */}
         {hasRoute && (
             <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-hide">
                  <span className="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-500 whitespace-nowrap">起點: 當前位置</span>
                  {items.map((item, i) => {
                      const isPassed = isTimePassedCheck(currentDay, item.time);
+                     const isSelected = selectedMapItem && selectedMapItem.id === item.id;
                      return (
                      <React.Fragment key={i}>
                         <span className="text-gray-300">→</span>
-                        <span className={`text-[10px] px-2 py-1 rounded whitespace-nowrap border ${isPassed ? 'bg-gray-100 text-gray-400 line-through border-gray-200' : 'bg-purple-50 text-purple-700 border-purple-100'}`}>
+                        <button 
+                            onClick={() => setSelectedMapItem(item)}
+                            className={`text-[10px] px-2 py-1 rounded whitespace-nowrap border transition-colors ${
+                                isSelected 
+                                ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105' 
+                                : isPassed 
+                                    ? 'bg-gray-100 text-gray-400 line-through border-gray-200' 
+                                    : 'bg-purple-50 text-purple-700 border-purple-100 hover:bg-purple-100'
+                            }`}
+                        >
                             {item.title}
-                        </span>
+                        </button>
                      </React.Fragment>
                  )})}
             </div>
@@ -823,6 +880,7 @@ export default function TravelApp() {
   const [toasts, setToasts] = useState([]);
   const [placesDB, setPlacesDB] = useState([]); 
   const [showToolsModal, setShowToolsModal] = useState(false); // New state for Tools Modal
+  const [focusedMapItem, setFocusedMapItem] = useState(null); // New state for single map item focus
   
   const [dashboardView, setDashboardView] = useState('grid'); 
   const [showDragHint, setShowDragHint] = useState(false);
@@ -949,8 +1007,19 @@ export default function TravelApp() {
       if (trip) {
         setItinerary(trip); 
         // Logic to validate currentDay
+        // Create empty day if not exists to avoid crash
         if (!trip.days[currentDay]) {
-             setCurrentDay('Day 1');
+            // If currentDay is invalid (e.g. Day 4 but only 3 days), reset to Day 1
+            // OR if valid (just created), ensure it exists in state
+            const dayKeys = Object.keys(trip.days);
+            if (dayKeys.length > 0) {
+                // If currentDay is not in keys, fallback to first day
+                if (!dayKeys.includes(currentDay)) {
+                    setCurrentDay(dayKeys[0]);
+                }
+            } else {
+                setCurrentDay('Day 1');
+            }
         }
       } else {
           setActiveTripId(null); // ID exists but trip gone
@@ -968,6 +1037,12 @@ export default function TravelApp() {
       }
     }
   }, [activeTripId]);
+  
+  // Handle tab reset when switching trips - Removed reset to keep state!
+  // We WANT to keep state when returning.
+  // But if we switch to a NEW trip, maybe reset? 
+  // Requirement: "When returning to APP... should return to that function". 
+  // This is handled by `activeTab` persistence.
 
   // --- Helpers ---
 
@@ -1061,7 +1136,20 @@ export default function TravelApp() {
     if (daysCount < parseInt(itinerary.dates.length) && !newDates.includes(currentDay)) {
         newCurrentDay = "Day 1";
     }
-    const updated = { ...itinerary, dates: newDates };
+    
+    // Ensure new days exist in the 'days' object (fix for adding days bug)
+    const currentDaysData = { ...itinerary.days };
+    newDates.forEach(day => {
+        if (!currentDaysData[day]) {
+            currentDaysData[day] = [];
+        }
+    });
+
+    const updated = { 
+        ...itinerary, 
+        dates: newDates,
+        days: currentDaysData 
+    };
     updateItinerary(updated);
     if(newCurrentDay !== currentDay) setCurrentDay(newCurrentDay);
   };
@@ -1073,7 +1161,11 @@ export default function TravelApp() {
 
   const saveItem = () => {
     if (!currentItem.title) return;
-    const dayList = [...itinerary.days[currentDay]];
+    
+    // Fix: Ensure the day array exists before spreading
+    const currentDayItems = itinerary.days[currentDay] || [];
+    const dayList = [...currentDayItems];
+    
     let newList;
     if (modalMode === 'add') {
       const newItem = { ...currentItem, id: Date.now().toString() + Math.random().toString().slice(2, 5) };
@@ -1082,18 +1174,24 @@ export default function TravelApp() {
       newList = dayList.map(item => item.id === currentItem.id ? currentItem : item);
       newList.sort((a, b) => a.time.localeCompare(b.time));
     }
-    const updated = { ...itinerary, days: { ...itinerary.days, [currentDay]: newList } };
+    
+    const updated = { 
+        ...itinerary, 
+        days: { ...itinerary.days, [currentDay]: newList } 
+    };
     updateItinerary(updated);
+
     setShowItemModal(false);
     addToast(modalMode === 'add' ? `已加入 ${currentDay}！` : '修改已儲存');
   };
 
-  const handleDeleteItem = () => {
-    const newList = itinerary.days[currentDay].filter(i => i.id !== currentItem.id);
-    const updated = { ...itinerary, days: { ...itinerary.days, [currentDay]: newList } };
-    updateItinerary(updated);
-    setShowItemModal(false);
-    addToast('行程已刪除', 'info');
+  const handleDeleteItem = (day, index) => {
+    if (window.confirm('確定要刪除此行程項目嗎？')) {
+        const currentItems = itinerary.days[day] || [];
+        const newItems = currentItems.filter((_, i) => i !== index);
+        updateItinerary({ ...itinerary, days: { ...itinerary.days, [day]: newItems } });
+        addToast('行程已刪除', 'info');
+    }
   };
 
   // Add item from recommendation
@@ -1129,7 +1227,7 @@ export default function TravelApp() {
 
   const handleCopyItinerary = () => {
     const { dateStr, weekDay } = getDayInfo(currentDay);
-    const text = itinerary.days[currentDay].map(i => `⏰ ${i.time} ${i.title} @${i.location || '無地點'}`).join('\n');
+    const text = itinerary.days[currentDay].map(i => `⏰ ${formatTimeDisplay(i.time)} ${i.title} @${i.location || '無地點'}`).join('\n');
     const header = `📅 ${itinerary.destination} - ${currentDay} (${dateStr} ${weekDay})\n`;
     const textToCopy = header + (text || "今日無行程") + `\n\n預算: $${calculateDailyCost(currentDay)}`;
     
@@ -1236,12 +1334,19 @@ export default function TravelApp() {
                     onDragStart={(e) => dragStart(e, index)}
                     onDragEnter={(e) => dragEnter(e, index)}
                     onDragEnd={drop}
+                    // 1. Click card body -> EDIT
                     onClick={() => { setModalMode('edit'); setCurrentItem(item); setShowItemModal(true); }}
                     className={`group relative flex items-center bg-white p-4 rounded-3xl border-2 border-transparent hover:border-yellow-300 shadow-sm transition-all duration-200 cursor-pointer active:scale-95 select-none ${isPassed ? 'opacity-60 bg-gray-50 scale-[0.98]' : 'hover:-translate-y-1'}`}
                   >
-                    <div className="absolute left-2 text-gray-200 mr-2 cursor-grab active:cursor-grabbing p-2"><GripVertical size={18} /></div>
+                    <div 
+                        className="absolute left-2 text-gray-200 mr-2 cursor-grab active:cursor-grabbing p-2"
+                        // Prevent click on grip from triggering edit
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <GripVertical size={18} />
+                    </div>
                     <div className="ml-5 mr-4 flex flex-col items-center min-w-[3.5rem]">
-                      <span className={`text-lg font-black font-mono ${isPassed ? 'text-gray-400' : 'text-gray-800'}`}>{item.time}</span>
+                      <span className={`text-lg font-black font-mono ${isPassed ? 'text-gray-400' : 'text-gray-800'}`}>{formatTimeDisplay(item.time)}</span>
                     </div>
                     <div className="flex-1 pr-2 border-l-2 border-gray-100 pl-4 py-1">
                        <div className="flex items-center justify-between mb-1">
@@ -1251,9 +1356,31 @@ export default function TravelApp() {
                        <h3 className={`font-bold text-gray-800 text-lg leading-tight line-clamp-1 ${isPassed ? 'line-through text-gray-400' : ''}`}>{item.title}</h3>
                        {item.notes && <p className="text-xs text-gray-400 mt-1 line-clamp-1">📝 {item.notes}</p>}
                     </div>
+
+                    {/* 2. Map Icon -> NAVIGATE TO MAP */}
                     {item.location && (
-                      <button onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`, '_blank'); }} className="p-3 bg-blue-50 text-blue-500 rounded-2xl hover:bg-blue-100 transition-colors flex-shrink-0"><MapPin size={18} /></button>
+                      <button 
+                        onClick={(e) => { 
+                            e.stopPropagation(); 
+                            // Internal Navigation Logic
+                            setFocusedMapItem(item);
+                            setActiveTab('map');
+                        }} 
+                        className="p-3 bg-blue-50 text-blue-500 rounded-2xl hover:bg-blue-100 transition-colors flex-shrink-0"
+                      >
+                        <MapPin size={18} />
+                      </button>
                     )}
+                    
+                    {/* 3. Delete Button */}
+                    <div className="flex flex-col ml-2 space-y-1">
+                         <button 
+                             onClick={(e) => { e.stopPropagation(); handleDeleteItem(currentDay, index); }}
+                             className="p-2 text-gray-400 hover:text-red-500"
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    </div>
                   </div>
                 );
             })}
@@ -1376,7 +1503,7 @@ export default function TravelApp() {
                     case 'translate':
                         return <TranslateView onBack={() => setActiveTab('itinerary')} onRequestPermission={requestPermission} addToast={addToast} />;
                     case 'map':
-                        return <MapView itinerary={itinerary} currentDay={currentDay} onBack={() => setActiveTab('itinerary')} onRequestPermission={requestPermission} addToast={addToast} />;
+                        return <MapView itinerary={itinerary} currentDay={currentDay} onBack={() => setActiveTab('itinerary')} onRequestPermission={requestPermission} addToast={addToast} focusedItem={focusedMapItem} onClearFocus={() => setFocusedMapItem(null)} />;
                     default:
                         return null;
                 }
