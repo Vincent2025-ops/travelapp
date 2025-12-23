@@ -282,7 +282,7 @@ const Sidebar = ({ isOpen, onClose, onUpdateDestination, destinationValue, start
             <span>安裝應用程式 (PWA)</span>
           </button>
           <div className="text-center text-xs text-gray-400">
-              Wanderlust Tracker v5.3
+              Wanderlust Tracker v5.4
           </div>
       </div>
     </div>
@@ -1120,23 +1120,12 @@ export default function TravelApp() {
 
   const isTimePassed = (day, timeStr) => {
     if (day !== "Day 1") return false; 
-    return day === "Day 1" && timeStr < "12:00"; 
+    return timeStr < "12:00"; 
   };
 
   // --- Logic Functions ---
 
-  const requestPermission = async (type, callback) => {
-      if (type === 'location' && navigator.permissions) {
-          try {
-              const result = await navigator.permissions.query({ name: 'geolocation' });
-              if (result.state === 'granted') {
-                  callback(); // 權限已授權，直接執行
-                  return;
-              }
-          } catch (e) {
-              // 忽略錯誤，回退到 Modal 流程
-          }
-      }
+  const requestPermission = (type, callback) => {
       setPermissionModal({ type, callback });
   };
 
@@ -1383,7 +1372,7 @@ export default function TravelApp() {
             <div key="empty-itinerary" className="text-center py-12 bg-gray-50 border-4 border-dashed border-gray-200 rounded-[2rem] mx-2">
               <div className="text-5xl mb-4 animate-pulse">🗺️</div>
               <p className="text-gray-400 font-bold mb-6 text-lg">這裡空空的，快去冒險吧！</p>
-              <button onClick={() => { setModalMode('add'); setCurrentItem({ ...currentItem, title: '', category: 'fun' }); setShowItemModal(true); }} className="bg-yellow-400 text-white px-8 py-3 rounded-2xl font-black shadow-lg shadow-yellow-200 hover:bg-yellow-500 transform transition-transform hover:scale-105 active:scale-95">+ 新增行程</button>
+              <button onClick={() => { setModalMode('add'); setCurrentItem({ id: '', time: '10:00', title: '', location: '', category: 'fun', cost: '', notes: '' }); setShowItemModal(true); }} className="bg-yellow-400 text-white px-8 py-3 rounded-2xl font-black shadow-lg shadow-yellow-200 hover:bg-yellow-500 transform transition-transform hover:scale-105 active:scale-95">+ 新增行程</button>
             </div>
         );
       }
@@ -1411,7 +1400,7 @@ export default function TravelApp() {
                         <GripVertical size={18} />
                     </div>
                     <div className="ml-5 mr-4 flex flex-col items-center min-w-[3.5rem]">
-                      <span className={`text-lg font-black font-mono ${isPassed ? 'text-gray-400' : 'text-gray-800'}`}>{formatTimeDisplay(item.time)}</span>
+                      <span className={`text-lg font-black font-mono ${isPassed ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{formatTimeDisplay(item.time)}</span>
                     </div>
                     <div className="flex-1 pr-2 border-l-2 border-gray-100 pl-4 py-1">
                        <div className="flex items-center justify-between mb-1">
@@ -1589,7 +1578,7 @@ export default function TravelApp() {
             <button onClick={() => setActiveTab('itinerary')} className={`transition-all ${activeTab === 'itinerary' ? 'text-yellow-500 scale-110' : 'text-gray-300'}`}><Calendar size={24} strokeWidth={3} /></button>
             <button onClick={() => setActiveTab('recommend')} className={`transition-all ${activeTab === 'recommend' ? 'text-green-500 scale-110' : 'text-gray-300'}`}><Search size={24} strokeWidth={3} /></button>
             <div className="relative -top-6">
-              <button onClick={() => { setModalMode('add'); setCurrentItem({ id: Date.now().toString(), time: '10:00', title: '', location: '', category: 'fun', cost: '', notes: '' }); setShowItemModal(true); }} className="w-16 h-16 bg-yellow-400 rounded-full shadow-[0_8px_20px_rgba(250,204,21,0.4)] flex items-center justify-center text-white border-4 border-white hover:bg-yellow-500 hover:scale-105 transition-all"><Plus size={32} strokeWidth={4} /></button>
+              <button onClick={() => { setModalMode('add'); setCurrentItem({ id: '', time: '10:00', title: '', location: '', category: 'fun', cost: '', notes: '' }); setShowItemModal(true); }} className="w-16 h-16 bg-yellow-400 rounded-full shadow-[0_8px_20px_rgba(250,204,21,0.4)] flex items-center justify-center text-white border-4 border-white hover:bg-yellow-500 hover:scale-105 transition-all"><Plus size={32} strokeWidth={4} /></button>
             </div>
             <button onClick={() => setActiveTab('translate')} className={`transition-all ${activeTab === 'translate' ? 'text-blue-500 scale-110' : 'text-gray-300'}`}><Languages size={24} strokeWidth={3} /></button>
             <button onClick={() => setActiveTab('map')} className={`transition-all ${activeTab === 'map' ? 'text-purple-500 scale-110' : 'text-gray-300'}`}><Navigation size={24} strokeWidth={3} /></button>
