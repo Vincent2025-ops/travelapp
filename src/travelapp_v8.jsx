@@ -188,7 +188,7 @@ const PermissionModal = ({ type, onConfirm, onCancel }) => {
     );
 };
 
-const Sidebar = ({ isOpen, onClose, onUpdateDestination, destinationValue, startDate, setStartDate, duration, setDuration }) => (
+const Sidebar = ({ isOpen, onClose, onUpdateDestination, destinationValue, startDate, setStartDate, duration, setDuration, onInstallApp, isPwaReady }) => (
   <>
     {isOpen && <div key="sidebar-overlay" className="fixed inset-0 bg-black/40 z-40 backdrop-blur-sm" onClick={onClose} />}
     <div key="sidebar-main" className={`fixed top-0 left-0 bottom-0 w-72 bg-white z-50 shadow-2xl transform transition-transform duration-300 ease-out p-6 flex flex-col ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -250,8 +250,15 @@ const Sidebar = ({ isOpen, onClose, onUpdateDestination, destinationValue, start
       </div>
       
       <div className="pt-4 border-t border-gray-100 space-y-3">
+          <button 
+            onClick={onInstallApp}
+            className="w-full flex items-center justify-center space-x-2 p-3 rounded-xl bg-yellow-400 text-white font-bold hover:bg-yellow-500 transition-colors shadow-md active:scale-95"
+          >
+            <Smartphone size={18} />
+            <span>安裝應用程式 (PWA)</span>
+          </button>
           <div className="text-center text-xs text-gray-400">
-              Wanderlust Tracker v5.4
+              Wanderlust Tracker v5.3 (Fixed)
           </div>
       </div>
     </div>
@@ -268,8 +275,7 @@ const PreviewCardModal = ({ itinerary, day, onClose, onDownload }) => {
                     <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full"><X size={20}/></button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 bg-yellow-50">
-                    {/* 新增 id="preview-card-node" 供截圖使用 */}
-                    <div id="preview-card-node" className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                         <div className="text-center mb-6">
                             <h2 className="text-2xl font-black text-gray-800">{itinerary.destination}</h2>
                             <div className="text-yellow-600 font-bold mt-1">{day} 行程表</div>
@@ -306,8 +312,8 @@ const PreviewCardModal = ({ itinerary, day, onClose, onDownload }) => {
     );
 };
 
-// 4. 工具箱 Modal (移除安裝按鈕)
-const ToolsModal = ({ onClose, onExport, onImport, allTrips, activeTripId }) => {
+// 4. 工具箱 Modal
+const ToolsModal = ({ onClose, onExport, onImport, allTrips, activeTripId, onInstall }) => {
     const fileInputRef = useRef(null);
     const [importCode, setImportCode] = useState("");
     const [selectedTripToShare, setSelectedTripToShare] = useState('all');
@@ -325,7 +331,6 @@ const ToolsModal = ({ onClose, onExport, onImport, allTrips, activeTripId }) => 
         try {
             const data = JSON.parse(importCode);
             onImport(data);
-            setImportCode("");
         } catch (e) {
             alert("代碼格式錯誤，請確認複製內容是否完整。");
         }
@@ -333,9 +338,9 @@ const ToolsModal = ({ onClose, onExport, onImport, allTrips, activeTripId }) => 
 
     const handleCopyShareCode = () => {
         let code = "";
-        // 修正：直接從 props 取得最新資料，而非可能過期的 localStorage
+        // 修正邏輯: 直接從 allTrips 取得資料，不依賴 localStorage，確保資料最新
         if (selectedTripToShare === 'all') {
-            code = JSON.stringify(allTrips); 
+            code = JSON.stringify(allTrips);
         } else {
             const trip = allTrips.find(t => t.id === selectedTripToShare);
             if (trip) {
@@ -349,12 +354,27 @@ const ToolsModal = ({ onClose, onExport, onImport, allTrips, activeTripId }) => 
             alert("找不到資料");
         }
     };
-
-    // 修正：明確呼叫匯出函式並傳遞資料，而非傳遞事件物件
-    const handleExportClick = () => {
-        // 這裡我們預設匯出「全部行程」作為完整備份
-        const filename = `Wanderlust_Backup_${new Date().toISOString().slice(0, 10)}`;
-        onExport(allTrips, filename);
+    
+    const handleExportFile = () => {
+        let dataToExport = null;
+        let filename = "行程備份";
+        
+        if (selectedTripToShare === 'all') {
+            dataToExport = allTrips;
+            filename = `完整備份-${new Date().toISOString().slice(0, 10)}`;
+        } else {
+            const trip = allTrips.find(t => t.id === selectedTripToShare);
+            if (trip) {
+                dataToExport = trip;
+                filename = `行程-${trip.destination}-${new Date().toISOString().slice(0, 10)}`;
+            }
+        }
+        
+        if (dataToExport) {
+            onExport(dataToExport, filename);
+        } else {
+            alert("找不到可匯出的資料");
+        }
     };
 
     return (
@@ -386,8 +406,7 @@ const ToolsModal = ({ onClose, onExport, onImport, allTrips, activeTripId }) => 
                 <div className="mb-6 border-b border-gray-100 pb-6">
                     <h4 className="font-bold text-gray-700 mb-3 flex items-center"><UploadCloud size={18} className="mr-2"/> 檔案備份/還原</h4>
                     <div className="grid grid-cols-2 gap-3">
-                         {/* 修正：使用 handleExportClick */}
-                         <button onClick={handleExportClick} className="p-3 bg-green-100 text-green-700 rounded-xl font-bold hover:bg-green-200 transition flex flex-col items-center justify-center">
+                         <button onClick={handleExportFile} className="p-3 bg-green-100 text-green-700 rounded-xl font-bold hover:bg-green-200 transition flex flex-col items-center justify-center">
                              <Download size={20} className="mb-1"/>
                              匯出檔案
                          </button>
@@ -402,10 +421,7 @@ const ToolsModal = ({ onClose, onExport, onImport, allTrips, activeTripId }) => 
                                      try {
                                          const data = JSON.parse(ev.target.result);
                                          onImport(data);
-                                         // 成功後提示由 App 端處理
-                                     } catch(err) { alert("檔案讀取失敗: 格式不正確"); }
-                                     // 修正：重置 value 允許重複匯入同檔名檔案
-                                     e.target.value = ''; 
+                                     } catch(err) { alert("檔案讀取失敗"); }
                                  };
                                  reader.readAsText(e.target.files[0]);
                              }
@@ -416,21 +432,8 @@ const ToolsModal = ({ onClose, onExport, onImport, allTrips, activeTripId }) => 
                 {/* 2. 文字代碼分享 */}
                 <div>
                     <h4 className="font-bold text-gray-700 mb-3 flex items-center"><FileText size={18} className="mr-2"/> 文字代碼分享</h4>
-                    <p className="text-xs text-gray-500 mb-2">將行程轉為文字代碼，方便在手機通訊軟體傳送。</p>
+                    <p className="text-xs text-gray-500 mb-2">將上方選擇的行程轉為代碼，方便傳送。</p>
                     
-                    <div className="mb-3">
-                        <select 
-                            value={selectedTripToShare} 
-                            onChange={(e) => setSelectedTripToShare(e.target.value)}
-                            className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-gray-50"
-                        >
-                            <option value="all">📁 全部行程 (完整備份)</option>
-                            {allTrips.map(trip => (
-                                <option key={trip.id} value={trip.id}>✈️ {trip.destination}</option>
-                            ))}
-                        </select>
-                    </div>
-
                     <button 
                         onClick={handleCopyShareCode}
                         className="w-full p-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition mb-4 flex items-center justify-center border border-gray-300"
@@ -452,6 +455,14 @@ const ToolsModal = ({ onClose, onExport, onImport, allTrips, activeTripId }) => 
                             匯入
                         </button>
                     </div>
+                </div>
+
+                {/* 3. PWA 安裝按鈕 */}
+                <div className="mt-6 pt-6 border-t border-gray-100">
+                     <h4 className="font-bold text-gray-700 mb-3 flex items-center"><Smartphone size={18} className="mr-2"/> 安裝 App</h4>
+                     <button onClick={onInstall} className="w-full p-4 bg-yellow-400 text-white font-bold rounded-2xl shadow-lg hover:bg-yellow-500 transition flex items-center justify-center">
+                         <Download size={20} className="mr-2"/> 安裝至主畫面
+                     </button>
                 </div>
              </div>
         </div>
@@ -901,7 +912,46 @@ export default function App() {
   const [permissionModal, setPermissionModal] = useState(null); 
   const dragItem = useRef();
   const dragOverItem = useRef();
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
   
+  useEffect(() => {
+    if (!document.querySelector('link[rel="manifest"]')) {
+      const manifest = {
+        "name": "Wanderlust Tracker",
+        "short_name": "Wanderlust",
+        "start_url": ".",
+        "display": "standalone",
+        "theme_color": "#ffffff",
+        "background_color": "#ffffff",
+        "icons": [
+          { "src": "https://cdn-icons-png.flaticon.com/512/201/201623.png", "sizes": "192x192", "type": "image/png" },
+          { "src": "https://cdn-icons-png.flaticon.com/512/201/201623.png", "sizes": "512x512", "type": "image/png" }
+        ]
+      };
+      const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+      const link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = URL.createObjectURL(blob);
+      document.head.appendChild(link);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setDeferredPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+  
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') setDeferredPrompt(null);
+    } else {
+      alert("【安裝教學】\n\n1. Android (Chrome): 點擊選單 ->「安裝應用程式」。\n2. iOS (Safari): 點擊「分享」->「加入主畫面」。");
+    }
+  };
+
   useEffect(() => {
     const savedTrips = localStorage.getItem('wanderlust_all_trips_v6'); 
     if (savedTrips) setAllTrips(JSON.parse(savedTrips));
@@ -1133,47 +1183,12 @@ export default function App() {
   };
   
   const handleOpenPreview = () => setShowPreviewModal(true);
+  const handleSaveImage = () => { setShowPreviewModal(false); addToast('圖片已儲存至相簿！(模擬)'); }
   
-  const handleSaveImage = async () => {
-      addToast('正在製作圖片...', 'info');
-      try {
-          if (!window.html2canvas) {
-              await new Promise((resolve, reject) => {
-                  const script = document.createElement('script');
-                  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-                  script.onload = resolve;
-                  script.onerror = reject;
-                  document.head.appendChild(script);
-              });
-          }
-          
-          const element = document.getElementById('preview-card-node');
-          if (!element) throw new Error('Element not found');
-
-          const canvas = await window.html2canvas(element, {
-              scale: 2,
-              useCORS: true,
-              backgroundColor: '#ffffff'
-          });
-
-          const dataUrl = canvas.toDataURL('image/png');
-          const link = document.createElement('a');
-          link.href = dataUrl;
-          link.download = `Itinerary-${new Date().toISOString().slice(0,10)}.png`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-
-          setShowPreviewModal(false);
-          addToast('圖片已儲存！');
-      } catch (e) {
-          console.error(e);
-          addToast('圖片儲存失敗', 'info');
-      }
-  }
-  
+  // 修正後的匯出邏輯：接收明確的 data 參數，避免 Event Object 混入
   const handleExport = (data, filename = '行程備份') => {
     try {
+        // 如果 data 是 null 或 Event 物件 (安全檢查)，則預設匯出當前行程
         const dataToExport = (data && !data.nativeEvent) ? data : itinerary;
         const dataStr = JSON.stringify(dataToExport, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -1301,6 +1316,8 @@ export default function App() {
         setStartDate={handleStartDateChange} 
         duration={itinerary.dates.length}
         setDuration={handleDurationChange}
+        onInstallApp={handleInstallApp}
+        isPwaReady={!!deferredPrompt}
       />
 
       {permissionModal && <PermissionModal type={permissionModal.type} onConfirm={handlePermissionConfirm} onCancel={handlePermissionCancel} />}
@@ -1475,6 +1492,7 @@ export default function App() {
             onClose={() => setShowToolsModal(false)}
             onExport={handleExport}
             onImport={handleImport}
+            onInstall={handleInstallApp}
             allTrips={allTrips} 
             activeTripId={activeTripId} 
         />
