@@ -249,9 +249,10 @@ const Sidebar = ({ isOpen, onClose, onUpdateDestination, destinationValue, start
         </div>
       </div>
       
+      {/* 移除安裝按鈕，僅保留版本號 */}
       <div className="pt-4 border-t border-gray-100 space-y-3">
           <div className="text-center text-xs text-gray-400">
-              Wanderlust Tracker v5.4
+              Wanderlust Tracker v5.5
           </div>
       </div>
     </div>
@@ -306,8 +307,8 @@ const PreviewCardModal = ({ itinerary, day, onClose, onDownload }) => {
     );
 };
 
-// 4. 工具箱 Modal (移除安裝按鈕)
-const ToolsModal = ({ onClose, onExport, onImport, allTrips, activeTripId }) => {
+// 4. 工具箱 Modal (新增安裝按鈕)
+const ToolsModal = ({ onClose, onExport, onImport, allTrips, activeTripId, onInstall }) => {
     const fileInputRef = useRef(null);
     const [importCode, setImportCode] = useState("");
     const [selectedTripToShare, setSelectedTripToShare] = useState('all');
@@ -452,6 +453,14 @@ const ToolsModal = ({ onClose, onExport, onImport, allTrips, activeTripId }) => 
                             匯入
                         </button>
                     </div>
+                </div>
+
+                {/* 3. PWA 安裝按鈕 (從 Sidebar 移來) */}
+                <div className="mt-6 pt-6 border-t border-gray-100">
+                     <h4 className="font-bold text-gray-700 mb-3 flex items-center"><Smartphone size={18} className="mr-2"/> 安裝 App</h4>
+                     <button onClick={onInstall} className="w-full p-4 bg-yellow-400 text-white font-bold rounded-2xl shadow-lg hover:bg-yellow-500 transition flex items-center justify-center">
+                         <Download size={20} className="mr-2"/> 安裝至主畫面
+                     </button>
                 </div>
              </div>
         </div>
@@ -901,7 +910,46 @@ export default function App() {
   const [permissionModal, setPermissionModal] = useState(null); 
   const dragItem = useRef();
   const dragOverItem = useRef();
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
   
+  useEffect(() => {
+    if (!document.querySelector('link[rel="manifest"]')) {
+      const manifest = {
+        "name": "Wanderlust Tracker",
+        "short_name": "Wanderlust",
+        "start_url": ".",
+        "display": "standalone",
+        "theme_color": "#ffffff",
+        "background_color": "#ffffff",
+        "icons": [
+          { "src": "https://cdn-icons-png.flaticon.com/512/201/201623.png", "sizes": "192x192", "type": "image/png" },
+          { "src": "https://cdn-icons-png.flaticon.com/512/201/201623.png", "sizes": "512x512", "type": "image/png" }
+        ]
+      };
+      const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+      const link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = URL.createObjectURL(blob);
+      document.head.appendChild(link);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setDeferredPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+  
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') setDeferredPrompt(null);
+    } else {
+      alert("【安裝教學】\n\n1. Android (Chrome): 點擊選單 ->「安裝應用程式」。\n2. iOS (Safari): 點擊「分享」->「加入主畫面」。");
+    }
+  };
+
   useEffect(() => {
     const savedTrips = localStorage.getItem('wanderlust_all_trips_v6'); 
     if (savedTrips) setAllTrips(JSON.parse(savedTrips));
@@ -1301,6 +1349,8 @@ export default function App() {
         setStartDate={handleStartDateChange} 
         duration={itinerary.dates.length}
         setDuration={handleDurationChange}
+        onInstallApp={handleInstallApp}
+        isPwaReady={!!deferredPrompt}
       />
 
       {permissionModal && <PermissionModal type={permissionModal.type} onConfirm={handlePermissionConfirm} onCancel={handlePermissionCancel} />}
@@ -1475,6 +1525,7 @@ export default function App() {
             onClose={() => setShowToolsModal(false)}
             onExport={handleExport}
             onImport={handleImport}
+            onInstall={handleInstallApp}
             allTrips={allTrips} 
             activeTripId={activeTripId} 
         />
