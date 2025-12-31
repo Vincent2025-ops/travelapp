@@ -1416,9 +1416,9 @@ export default function App() {
                                       <span className="ml-3 text-xs font-bold text-gray-500 flex items-center bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200">
                                         {dateStr} {weekDay} 
                                         <span className="ml-2">
-                                          {/* 3. 新增天氣查詢按鈕 */}
+                                          {/* 3. 新增天氣查詢按鈕 (修正為 Google 搜尋) */}
                                           <button 
-                                            onClick={() => window.open(`https://weather.com/weather/today/l/${itinerary.destination}`, '_blank')}
+                                            onClick={() => window.open(`https://www.google.com.tw/search?q=${encodeURIComponent(itinerary.destination + ' 天氣')}`, '_blank')}
                                             className="ml-1 px-1.5 py-0.5 rounded hover:bg-gray-200 active:scale-95 transition-all text-[10px] font-bold text-blue-500 flex items-center"
                                           >
                                             ☁️ 查看天氣
