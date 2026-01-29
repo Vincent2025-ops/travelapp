@@ -79,7 +79,6 @@ const TRANSLATION_DICT = {
 };
 
 // 預設行程範本
-// 2. 修正 BUG: 使用 toLocaleDateString('en-CA') 確保取得本地時間的 YYYY-MM-DD
 const getLocalDateString = () => {
     const now = new Date();
     return now.toLocaleDateString('en-CA');
@@ -87,7 +86,7 @@ const getLocalDateString = () => {
 
 const NEW_TRIP_TEMPLATE = {
   destination: "新旅程",
-  startDate: getLocalDateString(), // 使用修正後的日期函數
+  startDate: getLocalDateString(),
   dates: ["Day 1", "Day 2", "Day 3"],
   days: { "Day 1": [], "Day 2": [], "Day 3": [] },
   notes: { "Day 1": "", "Day 2": "", "Day 3": "" }
@@ -454,7 +453,7 @@ const ToolsModal = ({ onClose, onExport, onImport, allTrips, activeTripId, onIns
                     </div>
                 </div>
 
-                {/* 3. PWA 安裝按鈕 (依需求加入) */}
+                {/* 3. PWA 安裝按鈕 */}
                 <div className="pt-4 border-t border-gray-100 space-y-3">
                   <button 
                     onClick={onInstallApp}
@@ -933,6 +932,7 @@ export default function App() {
   const dragOverItem = useRef();
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   
+  // PWA Manifest Injection
   useEffect(() => {
     if (!document.querySelector('link[rel="manifest"]')) {
       const manifest = {
@@ -940,7 +940,7 @@ export default function App() {
         "short_name": "Wanderlust",
         "start_url": ".",
         "display": "standalone",
-        "theme_color": "#ffffff",
+        "theme_color": "#facc15",
         "background_color": "#ffffff",
         "icons": [
           { "src": "https://cdn-icons-png.flaticon.com/512/201/201623.png", "sizes": "192x192", "type": "image/png" },
@@ -955,8 +955,12 @@ export default function App() {
     }
   }, []);
 
+  // PWA Install Event Listener
   useEffect(() => {
-    const handler = (e) => { e.preventDefault(); setDeferredPrompt(e); };
+    const handler = (e) => { 
+        e.preventDefault(); 
+        setDeferredPrompt(e); 
+    };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
@@ -967,7 +971,14 @@ export default function App() {
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') setDeferredPrompt(null);
     } else {
-      alert("【安裝教學】\n\n1. Android (Chrome): 點擊選單 ->「安裝應用程式」。\n2. iOS (Safari): 點擊「分享」->「加入主畫面」。");
+        // 判斷是否為 iOS 裝置 (簡易判斷)
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        
+        if (isIOS) {
+            alert("【iOS 安裝教學】\n\n1. 點擊下方工具列的「分享」圖示 ⤒\n2. 往下滑找到並點選「加入主畫面」➕\n3. 點擊右上角的「加入」即可！");
+        } else {
+            alert("【安裝教學】\n\n您的瀏覽器可能不支援自動安裝，或應用程式已安裝。\n\n• Chrome (電腦): 點擊網址列右側的下載圖示。\n• Android: 點擊瀏覽器選單 ->「安裝應用程式」。");
+        }
     }
   };
 
